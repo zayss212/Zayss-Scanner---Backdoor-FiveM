@@ -22,14 +22,6 @@ Des milliers de serveurs ont été victimes :
 
 ---
 
-## 🕒 Historique du projet
-
-- **2023** : Développement initial d'un scanner ciblé uniquement sur Cipher
-- **2024** : Face à la multiplication des variantes, le scanner basique n'était plus suffisant
-- **2025** : Réécriture complète avec détection multi-signatures, analyse d'obfuscation et système de scoring
-
----
-
 ## 🎯 Objectif
 
 ZayssScanner n'est **pas un antivirus magique**, mais un **outil d'audit de sécurité** pour :
@@ -38,7 +30,6 @@ ZayssScanner n'est **pas un antivirus magique**, mais un **outil d'audit de séc
 - ✅ Détecter les signatures connues de backdoors (Cipher, Ketamin, etc.)
 - ✅ Repérer les patterns de code dangereux (XOR, Unicode, Base64)
 - ✅ Analyser le niveau d'obfuscation avec un système de scoring
-- ✅ Scanner avant mise en production
 - ✅ Monitorer en temps réel avec alertes Discord
 
 ---
@@ -64,11 +55,11 @@ ZayssScanner n'est **pas un antivirus magique**, mais un **outil d'audit de séc
 ### Git Clone
 ```bash
 cd resources
-git clone https://github.com/zayss212/Zayss-Scanner.git [zayss_scanner]
+git clone https://github.com/zayss212/Zayss-Scanner---Backdoor-FiveM.git [zayss_scanner]
 ```
 
 ### Téléchargement manuel
-1. Téléchargez la [dernière release](https://github.com/zayss212/Zayss-Scanner/releases)
+1. Téléchargez la [dernière release](https://github.com/zayss212/Zayss-Scanner---Backdoor-FiveM)
 2. Extrayez dans `resources/[zayss_scanner]`
 3. Renommez le dossier en `zayss_scanner`
 
@@ -191,23 +182,17 @@ Durée du scan: 2.45s
 - ✅ Faire des backups réguliers
 - ✅ Tester sur un serveur de développement
 
----
-
-## 🤝 Contribution
-
-Les contributions sont bienvenues !
-
-1. Fork le projet
-2. Créez votre branche (`git checkout -b feature/AmazingFeature`)
-3. Commit (`git commit -m 'Add: Amazing Feature'`)
-4. Push (`git push origin feature/AmazingFeature`)
-5. Ouvrez une Pull Request
+### Conseil de Debuts
+- 🔧 Lancer votre server en fesant un scan
+- 🔧 Stopper votre server et supprimer chaque backdoors detecter **(Verifier bien que vous ne supprimer pas n'importe quoi)**
+- 🔧 Supprimer le cache de votre server et dans vos artifacts fivem **citizen/system_resources** supprimer la resources suspects (souvent nommer: sys, mod, ...)
+- 🔧 Vous pouvez ensuite relancer votre server et refaire un scan
 
 ---
 
 ## 💬 Support
 
-- **GitHub** : [github.com/zayss212/Zayss-Scanner](https://github.com/zayss212/Zayss-Scanner)
+- **GitHub** : [github.com/zayss212/Zayss-Scanner](https://github.com/zayss212/Zayss-Scanner---Backdoor-FiveM)
 - **Discord** : [discord.gg/RPsJneRd9V](https://discord.gg/RPsJneRd9V)
 - **Issues** : [Signaler un bug](https://github.com/zayss212/Zayss-Scanner/issues)
 
