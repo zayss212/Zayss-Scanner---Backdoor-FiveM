@@ -3,7 +3,7 @@ ZayssScanner = {}
 ZayssScanner.SendZayssDiscordLogs = true
 ZayssScanner.StopServer = false
 
-ZayssScanner.DiscordWebhook = "https://discord.com/api/webhooks/1370940174552535040/WOsl-qg0OfrbvhBaYcoKquwm2PXZ4xpe9oxSNRVrcieAbmWQDmKTaVpVGv82ONgRPAd_"
+ZayssScanner.DiscordWebhook = "Votre webhook"
 
 ZayssScanner.IgnoreResources = {}
 
