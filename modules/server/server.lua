@@ -168,6 +168,32 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     return true, "XOR Character encoding", "[[XOR BACKDOOR]]"
   end
 
+  if
+    (string.find(content, "SaveResourceFile") or string.find(content, "io%.open%(")) and
+    (string.find(content, "GetNumResources") or string.find(content, "GetResourceByFindIndex")) then
+    return true, "Resource Injector (writes into other resources)", "[[INJECTOR BACKDOOR]]"
+  end
+
+  if
+    string.find(content, "PerformHttpRequest") and
+    (string.find(content, "SaveResourceFile") or string.find(content, "LoadResourceFile")) then
+    return true, "Remote Payload Injector", "[[INJECTOR BACKDOOR]]"
+  end
+
+  if string.find(content, "loadstring%(") or
+     string.find(content, "assert%(%s*load") or
+     string.find(content, "load%(") then
+    return true, "Dynamic Lua code execution loader", "[[LUA LOADER BACKDOOR]]"
+  end
+
+
+  if string.find(content, "fxmanifest") or string.find(content, "__resource%.lua") then
+    if string.find(content, "SaveResourceFile") or string.find(content, "io%.open") then
+      return true, "Manifest Injector (auto persistence)", "[[PERSISTENCE INJECTOR]]"
+    end
+  end
+
+
   if string.find(content, "\\u%x%x%x%x") and string.find(content, "eval") then
     local unicodeCount = 0
     for _ in content:gmatch("\\u%x%x%x%x") do
@@ -182,9 +208,22 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     return true, "String manipulation + eval", "[[OBFUSCATION BACKDOOR]]"
   end
 
-  if (string.find(content, "PerformHttpRequest") or string.find(content, "https?://")) and string.find(content, "eval") then
-    return true, "Remote code execution via HTTP", "[[REMOTE EXECUTION BACKDOOR]]"
+  if string.find(content, "https?://") and
+     (string.find(content, "PerformHttpRequest") or string.find(content, "InvokeNative")) then
+    return true, "Remote payload downloader", "[[REMOTE LOADER]]"
   end
+
+  if string.find(content, "debug%.getinfo") or string.find(content, "pcall%(") then
+    return true, "Anti-debug / stealth behavior", "[[STEALTH BACKDOOR]]"
+  end
+
+  local writeCount = 0
+  for _ in content:gmatch("SaveResourceFile") do writeCount = writeCount + 1 end
+
+  if writeCount >= 3 then
+    return true, "Multi-file dropper behavior", "[[DROPPER BACKDOOR]]"
+  end
+
 
   if string.find(content, "LoadResourceFile") and string.find(content, "load%(") then
     return true, "Dynamic file loading", "[[SUSPICIOUS CODE LOADING]]"
