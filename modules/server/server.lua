@@ -152,13 +152,11 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     end
   end
 
-  -- Blum injection signature: file starts with /* [resourceName] */
   local trimmed = content:match("^%s*(.-)%s*$") or content
   if trimmed:match("^/%*%s*%[.-%]%s*%*/") then
     return true, "Blum Injection Signature (/* [name] */)", "[[BLUM INJECTION]]"
   end
 
-  -- XOR obfuscated eval (stopblumv2 pattern)
   if trimmed:match("^%(function%(%)%{const%s+%w+=%d+;function%s+%w+%(a,k%)") and string.find(content, "fromCharCode") and string.find(content, "eval") then
     return true, "XOR Obfuscated Blum Backdoor (eval + fromCharCode + XOR)", "[[BLUM XOR BACKDOOR]]"
   end
@@ -315,8 +313,6 @@ local function scanResource(resourceName)
     end
   end
 
-  -- Deep filesystem scan: scan ALL .js/.lua files in the resource folder
-  -- Catches files loaded via globs and hidden/injected files not in manifest
   if ZayssScanner.ScanOptions.DeepScan then
     local resourcePath = GetResourcePath(resourceName)
     if resourcePath then
@@ -350,7 +346,6 @@ local function startScan()
     scanResource(resourceName)
   end
 
-  -- Scan cfx system directory for unauthorized/injected resources
   if ZayssScanner.ScanOptions.DeepScan then
     local monitorPath = exports[GetCurrentResourceName()]:getMonitorPath()
     if monitorPath then
