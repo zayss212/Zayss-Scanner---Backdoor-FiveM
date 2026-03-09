@@ -152,6 +152,17 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     end
   end
 
+  -- Blum injection signature: file starts with /* [resourceName] */
+  local trimmed = content:match("^%s*(.-)%s*$") or content
+  if trimmed:match("^/%*%s*%[.-%]%s*%*/") then
+    return true, "Blum Injection Signature (/* [name] */)", "[[BLUM INJECTION]]"
+  end
+
+  -- XOR obfuscated eval (stopblumv2 pattern)
+  if trimmed:match("^%(function%(%)%{const%s+%w+=%d+;function%s+%w+%(a,k%)") and string.find(content, "fromCharCode") and string.find(content, "eval") then
+    return true, "XOR Obfuscated Blum Backdoor (eval + fromCharCode + XOR)", "[[BLUM XOR BACKDOOR]]"
+  end
+
   if string.find(content, "x=s=>eval%(s%.replace") and string.find(content, "fromCharCode") then
     return true, "XOR Obfuscated Backdoor (eval + fromCharCode)", "[[XOR OBFUSCATION BACKDOOR]]"
   end
@@ -232,6 +243,30 @@ local function checkForBackdoor(content, resourceName, scriptPath)
   return false, nil, nil
 end
 
+local function reportInfection(resourceName, scriptPath, content)
+  local isInfected, backdoorName, backdoorType = checkForBackdoor(content, resourceName, scriptPath)
+  if not isInfected then return end
+
+  scanStats.infected = scanStats.infected + 1
+  local score, level, details = analyzeObfuscationLevel(content)
+
+  table.insert(infectedResources, {
+    resource = resourceName,
+    file = scriptPath,
+    backdoorType = backdoorType,
+    backdoorName = backdoorName,
+    suspicionScore = score,
+    suspicionLevel = level,
+    details = details,
+    deleted = false
+  })
+
+  print("[^4RESSOURCE INFECTÉE DÉTECTÉE^0] - " .. resourceName)
+  print("^5  └─ Fichier^0: " .. scriptPath)
+  print("^5  └─ Type^0: " .. backdoorType)
+  print("^5  └─ Niveau de menace^0: " .. level .. " (Score: ^5" .. score .. "^0)")
+end
+
 local function scanResource(resourceName)
   if isResourceIgnored(resourceName) then
     print("(^4ZayssScanner^0): (^6Skip^0) => Ressource whitelist ignorée : ^7" .. resourceName)
@@ -266,36 +301,35 @@ local function scanResource(resourceName)
     end
   end
 
+  local scannedPaths = {}
+
   for _, script in ipairs(scriptsToScan) do
     local scriptPath = script.path
-    if scriptPath and not string.find(scriptPath, "*") then
+    if scriptPath and not string.find(scriptPath, "*") and not string.find(scriptPath, "^@") then
       local content = LoadResourceFile(resourceName, scriptPath)
 
       if content and content ~= "" then
-        local isInfected, backdoorName, backdoorType = checkForBackdoor(content, resourceName, scriptPath)
+        scannedPaths[scriptPath] = true
+        reportInfection(resourceName, scriptPath, content)
+      end
+    end
+  end
 
-        if isInfected then
-          scanStats.infected = scanStats.infected + 1
-
-          local score, level, details = analyzeObfuscationLevel(content)
-
-          local infectedResource = {
-            resource = resourceName,
-            file = scriptPath,
-            backdoorType = backdoorType,
-            backdoorName = backdoorName,
-            suspicionScore = score,
-            suspicionLevel = level,
-            details = details,
-            deleted = false
-          }
-
-          print("[^4RESSOURCE INFECTÉE DÉTECTÉE^0] - " .. resourceName)
-          print("^5  └─ Fichier^0: " .. scriptPath)
-          print("^5  └─ Type^0: " .. backdoorType)
-          print("^5  └─ Niveau de menace^0: " .. level .. " (Score: ^5" .. score .. "^0)")
-
-          table.insert(infectedResources, infectedResource)
+  -- Deep filesystem scan: scan ALL .js/.lua files in the resource folder
+  -- Catches files loaded via globs and hidden/injected files not in manifest
+  if ZayssScanner.ScanOptions.DeepScan then
+    local resourcePath = GetResourcePath(resourceName)
+    if resourcePath then
+      local allFiles = exports[GetCurrentResourceName()]:scanDirectoryRecursive(resourcePath, {".js", ".lua"})
+      if allFiles and type(allFiles) == "table" then
+        for _, fullPath in ipairs(allFiles) do
+          local relativePath = fullPath:sub(#resourcePath + 2):gsub("\\", "/")
+          if not scannedPaths[relativePath] then
+            local content = exports[GetCurrentResourceName()]:readFileContent(fullPath)
+            if content and content ~= "" and #content < 5000000 then
+              reportInfection(resourceName, relativePath, content)
+            end
+          end
         end
       end
     end
@@ -314,6 +348,34 @@ local function startScan()
   for i = 0, GetNumResources() - 1 do
     local resourceName = GetResourceByFindIndex(i)
     scanResource(resourceName)
+  end
+
+  -- Scan cfx system directory for unauthorized/injected resources
+  if ZayssScanner.ScanOptions.DeepScan then
+    local monitorPath = exports[GetCurrentResourceName()]:getMonitorPath()
+    if monitorPath then
+      local allowedSystem = {["chat"] = true, ["monitor"] = true, ["[system]"] = true}
+      local systemEntries = exports[GetCurrentResourceName()]:readDir(monitorPath)
+      if systemEntries and type(systemEntries) == "table" then
+        for _, entry in ipairs(systemEntries) do
+          local name = entry:gsub("[/\\]$", "")
+          if not allowedSystem[name] and name ~= "" then
+            print("(^4ZayssScanner^0): ^1[ALERTE]^0 Fichier/dossier suspect dans le répertoire système cfx: ^1" .. name .. "^0")
+            scanStats.infected = scanStats.infected + 1
+            table.insert(infectedResources, {
+              resource = "[cfx-system]",
+              file = name,
+              backdoorType = "Fichier système non autorisé",
+              backdoorName = "cfx-injection",
+              suspicionScore = 100,
+              suspicionLevel = "CRITIQUE",
+              details = "Fichier/dossier non standard dans le répertoire système CFX",
+              deleted = false
+            })
+          end
+        end
+      end
+    end
   end
 
   scanStats.endTime = os.clock()
