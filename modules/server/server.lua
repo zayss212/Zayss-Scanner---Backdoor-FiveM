@@ -143,7 +143,24 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     {pattern = "blum%-panel%.me", name = "blum-panel", type = "[[BLUM-PANEL BACKDOOR]]"},
     {pattern = "blum%-panel%", name = "blum-panel", type = "[[BLUM-PANEL BACKDOOR]]"},
     {pattern = "blum-panel", name = "blum-panel", type = "[[BLUM-PANEL BACKDOOR]]"},
-    {pattern = "MpWxwQeLMRJaDFLKmxVIFNeVfzVKaTBiVRvjBoePYciqfpJzxjNPIXedbOtvIbpDxqdoJR", name = "MpWxwQeLMRJaDFLKmxVIFNeVfzVKaTBiVRvjBoePYciqfpJzxjNPIXedbOtvIbpDxqdoJR", type = "[[CIPHER BACKDOOR]]"}
+    {pattern = "MpWxwQeLMRJaDFLKmxVIFNeVfzVKaTBiVRvjBoePYciqfpJzxjNPIXedbOtvIbpDxqdoJR", name = "MpWxwQeLMRJaDFLKmxVIFNeVfzVKaTBiVRvjBoePYciqfpJzxjNPIXedbOtvIbpDxqdoJR", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "token%.cipher%-panel%.me", name = "Cipher Token Backdoor (token.cipher-panel.me)", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "kelaidi09981%.org", name = "Cipher Kelaidi Backdoor (kelaidi09981.org)", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "R9D9TJJ", name = "Cipher Backdoor Token R9D9TJJ", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "bGVkPPCKBRqLBok", name = "Cipher RCE Callback (bGVkPPCKBRqLBok)", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "runInThisContext", name = "VM runInThisContext (remote code exec)", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "vm%.runInThisContext", name = "Lua VM runInThisContext reference", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "IsDuplicityVersion", name = "Cipher IsDuplicityVersion check", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "Buffer%.from%('Z2V0'", name = "Cipher Base64 Buffer.from obfuscation", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "Buffer%.from%('dm0='", name = "Cipher Base64 VM require obfuscation", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "Buffer%.from%('ZGF0YQ=='", name = "Cipher Base64 data event obfuscation", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "child_process", name = "Node child_process module (code execution)", type = "[[SUSPICIOUS MODULE]]"},
+    {pattern = "sv_licenseKey", name = "Server license key access", type = "[[TOKEN THEFT]]"},
+    {pattern = "TXADMIN_DEFAULT_PASSWORD", name = "txAdmin password theft", type = "[[TOKEN THEFT]]"},
+    {pattern = "cipher%-panel%.me/", name = "Cipher panel domain with path", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "token%.cipher", name = "Cipher token subdomain", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "appendFileSync", name = "Node appendFileSync (file injection)", type = "[[SUSPICIOUS FILE WRITE]]"},
+    {pattern = "callbackEvent", name = "Cipher RCE callbackEvent field", type = "[[CIPHER BACKDOOR]]"}
   }
 
   for _, backdoor in ipairs(backdoorPatterns) do
@@ -167,6 +184,30 @@ local function checkForBackdoor(content, resourceName, scriptPath)
 
   if string.find(content, "String%.fromCharCode") and string.find(content, "eval") then
     return true, "JavaScript Obfuscated eval", "[[OBFUSCATION BACKDOOR]]"
+  end
+
+  if string.find(content, "addEventListener") and string.find(content, "fromCharCode") and string.find(content, "eval") and string.find(content, "GetParentResourceName") then
+    return true, "Cipher NUI eval listener (HTML message + eval + callback)", "[[CIPHER HTML BACKDOOR]]"
+  end
+
+  if string.find(content, "require%('https'%)") and string.find(content, "runInThisContext") then
+    return true, "Cipher HTTPS + VM remote exec", "[[CIPHER BACKDOOR]]"
+  end
+
+  if string.find(content, "require%('vm'%)") and string.find(content, "Buffer%.concat") and string.find(content, "https%.get") then
+    return true, "Cipher VM buffer concat remote exec", "[[CIPHER BACKDOOR]]"
+  end
+
+  if string.find(content, "Buffer%.from%('") and string.find(content, "base64") and string.find(content, "toString%]") then
+    return true, "Cipher obfuscated Buffer.from base64 chain", "[[CIPHER BACKDOOR]]"
+  end
+
+  if string.find(content, "\\x6f\\x6e") or string.find(content, "\\x65\\x76\\x61\\x6c") or string.find(content, "\\x63\\x6f\\x6e\\x63\\x61\\x74") then
+    return true, "Cipher hex-escaped JS strings", "[[CIPHER BACKDOOR]]"
+  end
+
+  if string.find(content, "bGVkPPCKBRqLBok") then
+    return true, "Cipher NUI callback identifier", "[[CIPHER BACKDOOR]]"
   end
 
   if string.find(content, "globalThis%[") and string.find(content, "%]%(") then
@@ -195,6 +236,68 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     return true, "Dynamic Lua code execution loader", "[[LUA LOADER BACKDOOR]]"
   end
 
+  if string.find(content, "RegisterNetEvent") and string.find(content, "assert") and string.find(content, "load") and string.find(content, "TriggerServerEvent") then
+    if string.find(content, "\\98\\71\\86") or string.find(content, "string%.char%(98,71,86") or string.find(content, "bGVkPPCKBRqLBok") then
+      return true, "Cipher Lua obfuscated RCE (RegisterNetEvent + load + assert)", "[[CIPHER LUA BACKDOOR]]"
+    end
+  end
+
+  if string.find(content, "string%.char%(") and string.find(content, "RegisterNetEvent") and string.find(content, "pcall") and string.find(content, "assert") then
+    return true, "Cipher Lua string.char obfuscated event handler", "[[CIPHER LUA BACKDOOR]]"
+  end
+
+  if string.find(content, "rawget%(_G") and string.find(content, "rawset") and string.find(content, "string%.char%(") and string.find(content, "CreateThread") then
+    return true, "Cipher Lua rawget/rawset obfuscated backdoor", "[[CIPHER LUA BACKDOOR]]"
+  end
+
+
+  if string.find(content, '%["R"%.\."egi"') or string.find(content, '"R"%.\.%.\."egi"') then
+    if string.find(content, "assert") or string.find(content, "load") then
+      return true, "Cipher Lua string-concat obfuscated RegisterNetEvent", "[[CIPHER LUA BACKDOOR]]"
+    end
+  end
+
+  if string.find(content, 'local%s+=%s*_?G') and string.find(content, "CreateThread") and (string.find(content, "pcall") or string.find(content, "assert")) then
+    return true, "Cipher Lua _G alias obfuscated RCE", "[[CIPHER LUA BACKDOOR]]"
+  end
+
+  if (string.find(content, "writeFileSync") or string.find(content, "appendFileSync")) and
+     (string.find(content, "GetResourcePath") or string.find(content, "GetNumResources") or string.find(content, "GetResourceByFindIndex")) then
+    return true, "JS File Injector (fs write + resource scanning)", "[[JS INJECTOR BACKDOOR]]"
+  end
+
+  if string.find(content, "addEventListener") and string.find(content, "eval") and string.find(content, "GetParentResourceName") then
+    return true, "NUI eval listener backdoor (message + eval + NUI callback)", "[[CIPHER HTML BACKDOOR]]"
+  end
+
+  if string.find(content, '"preinstall"') or string.find(content, '"postinstall"') or string.find(content, '"prepublish"') then
+    if string.find(content, "node ") or string.find(content, "curl") or string.find(content, "wget") or
+       string.find(content, "eval") or string.find(content, "base64") or string.find(content, "http") then
+      return true, "NPM malicious lifecycle script (preinstall/postinstall)", "[[NPM INJECTOR]]"
+    end
+  end
+
+  if string.find(content, "process%.env") and
+     (string.find(content, "https?") or string.find(content, "fetch%(") or string.find(content, "XMLHttpRequest") or string.find(content, "%.get%(")) then
+    return true, "Environment variable exfiltration", "[[TOKEN THEFT]]"
+  end
+
+  if string.find(content, "require%('https'%)") and string.find(content, "require%('vm'%)") then
+    return true, "Cipher HTTPS downloader + VM executor", "[[CIPHER BACKDOOR]]"
+  end
+
+
+  local hexCount = 0
+  for _ in content:gmatch("\\x%x%x") do hexCount = hexCount + 1 end
+  if hexCount > 5 and (string.find(content, "require") or string.find(content, "addEventListener")) then
+    return true, "Heavy hex-escape obfuscation (" .. hexCount .. " sequences)", "[[CIPHER OBFUSCATION]]"
+  end
+
+  local charCodeCount = 0
+  for _ in content:gmatch("fromCharCode") do charCodeCount = charCodeCount + 1 end
+  if charCodeCount >= 3 and (string.find(content, "require") or string.find(content, "eval") or string.find(content, "fetch")) then
+    return true, "Heavy fromCharCode obfuscation (" .. charCodeCount .. " usages)", "[[CIPHER OBFUSCATION]]"
+  end
 
   if string.find(content, "fxmanifest") or string.find(content, "__resource%.lua") then
     if string.find(content, "SaveResourceFile") or string.find(content, "io%.open") then
@@ -316,7 +419,11 @@ local function scanResource(resourceName)
   if ZayssScanner.ScanOptions.DeepScan then
     local resourcePath = GetResourcePath(resourceName)
     if resourcePath then
-      local allFiles = exports[GetCurrentResourceName()]:scanDirectoryRecursive(resourcePath, {".js", ".lua"})
+      local scanExts = {".js", ".lua", ".html"}
+      if ZayssScanner.ScanOptions.ScanPackageJSON then
+        table.insert(scanExts, ".json")
+      end
+      local allFiles = exports[GetCurrentResourceName()]:scanDirectoryRecursive(resourcePath, scanExts)
       if allFiles and type(allFiles) == "table" then
         for _, fullPath in ipairs(allFiles) do
           local relativePath = fullPath:sub(#resourcePath + 2):gsub("\\", "/")
@@ -461,6 +568,8 @@ RegisterCommand("scan-backdoor", function()
   print("(^4ZayssScanner^0): ^0Recherche de ^6Ketamin^0 backdoors...")
   Wait(1000)
   print("(^4ZayssScanner^0): ^0Recherche de ^6XOR obfuscated^0 backdoors...")
+  Wait(1000)
+  print("(^4ZayssScanner^0): ^0Recherche de ^6Cipher v2^0 backdoors (injectors, npm hooks, token theft)...")
   Wait(1000)
   print("(^4ZayssScanner^0): ^0Recherche de ^6remote execution^0 backdoors...")
   Wait(1000)
