@@ -47,7 +47,7 @@ exports("getMonitorPath", function() {
 exports("scanDirectoryRecursive", function(dirPath, extensions) {
     if (GetInvokingResource() != GetCurrentResourceName()) return false
     const results = []
-    const exts = extensions || [".js", ".lua"]
+    const exts = extensions || [".js", ".lua", ".html"]
     function walk(dir) {
         let items
         try { items = fs.readdirSync(dir) } catch { return }
