@@ -251,10 +251,8 @@ local function checkForBackdoor(content, resourceName, scriptPath)
   end
 
 
-  if string.find(content, '%["R"%.\."egi"') or string.find(content, '"R"%.\.%.\."egi"') then
-    if string.find(content, "assert") or string.find(content, "load") then
-      return true, "Cipher Lua string-concat obfuscated RegisterNetEvent", "[[CIPHER LUA BACKDOOR]]"
-    end
+  if string.find(content, '"R"%.%.') and string.find(content, '"egi"') and (string.find(content, "assert") or string.find(content, "load")) then
+    return true, "Cipher Lua string-concat obfuscated RegisterNetEvent", "[[CIPHER LUA BACKDOOR]]"
   end
 
   if string.find(content, 'local%s+=%s*_?G') and string.find(content, "CreateThread") and (string.find(content, "pcall") or string.find(content, "assert")) then
