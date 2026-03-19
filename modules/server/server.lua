@@ -424,7 +424,7 @@ local function scanResource(resourceName)
       local allFiles = exports[GetCurrentResourceName()]:scanDirectoryRecursive(resourcePath, scanExts)
       if allFiles and type(allFiles) == "table" then
         for _, fullPath in ipairs(allFiles) do
-          local relativePath = fullPath:sub(#resourcePath + 2):gsub("\\", "/")
+          local relativePath = fullPath:sub(#resourcePath + 1):gsub("^[\\/]+", ""):gsub("\\", "/")
           if not scannedPaths[relativePath] then
             local content = exports[GetCurrentResourceName()]:readFileContent(fullPath)
             if content and content ~= "" and #content < 5000000 then
