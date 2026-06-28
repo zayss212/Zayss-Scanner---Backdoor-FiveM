@@ -7,49 +7,6 @@ local scanStats = {
   endTime = 0
 }
 
-local function sendDiscordWebhook(infections)
-  if not ZayssScanner.SendZayssDiscordLogs or not ZayssScanner.DiscordWebhook then return end
-
-  local embed = {
-    embeds = {{
-      title = "``🚨`` Détection de backdoor",
-      description = string.format("**%d potentiels backdoors ont été détectés, veuillez vérifier les informations ci-dessous :**", #infections),
-      color = 32727,
-      fields = {},
-      footer = {
-        text = "ZayssScanner By Zayss | V1"
-      },
-      timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
-    }}
-  }
-
-  for i, infection in ipairs(infections) do
-    if i <= 10 then
-      table.insert(embed.embeds[1].fields, {
-        name = "# ``📃`` Resource: " .. (infection.resource or "Unknown"),
-        value = string.format(
-          "**File:** ``%s``\n**Type:** ``%s``\n**Level:** ``%s``\n**Score:** ``%d``",
-          infection.file or infection.name or "Unknown",
-          infection.backdoorType or infection.stringfound or "Unknown",
-          infection.suspicionLevel or "Unknown",
-          infection.suspicionScore or 0
-        ),
-        inline = false
-      })
-    end
-  end
-
-  if #infections > 10 then
-    table.insert(embed.embeds[1].fields, {
-      name = "Additional Infections",
-      value = string.format("... and %d more", #infections - 10),
-      inline = false
-    })
-  end
-
-  PerformHttpRequest(ZayssScanner.DiscordWebhook, function(err, text, headers) end, 'POST', json.encode(embed), { ['Content-Type'] = 'application/json' })
-end
-
 local function isResourceIgnored(resourceName)
   for _, ignored in ipairs(ZayssScanner.IgnoreResources) do
     if resourceName == ignored then
@@ -172,7 +129,13 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     -- Base64 'data' utilise pour masquer l'evenement .on('data') - variante yarn
     {pattern = "Buffer%.from%('ZGF0YQ==','base64'%)", name = "Cipher base64 'data' event obfuscation", type = "[[CIPHER BACKDOOR]]"},
     -- Base64 'https' utilise pour masquer require('https')
-    {pattern = "Buffer%.from%('aHR0cHM=','base64'%)", name = "Cipher base64 'https' require obfuscation", type = "[[CIPHER BACKDOOR]]"}
+    {pattern = "Buffer%.from%('aHR0cHM=','base64'%)", name = "Cipher base64 'https' require obfuscation", type = "[[CIPHER BACKDOOR]]"},
+    -- Nouveau domaine C2 detecte dans webpack_builder.js
+    {pattern = "b4lls%.uk", name = "Cipher C2 b4lls.uk", type = "[[CIPHER BACKDOOR]]"},
+    -- fromCharCode(104,116,116,112,115) = 'https' encode en charcode
+    {pattern = "fromCharCode%(104,116,116,112,115%)", name = "Cipher charcode 'https' obfuscation", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "kJHVBGWUEDdEYoH", name = "Cipher NUI RCE callback kJHVBGWUEDdEYoH", type = "[[CIPHER HTML BACKDOOR]]"},
+    {pattern = "fromCharCode%(99,111,100,101%)", name = "Cipher charcode 'code' field (NUI eval backdoor)", type = "[[CIPHER HTML BACKDOOR]]"}
   }
 
   for _, backdoor in ipairs(backdoorPatterns) do
@@ -351,12 +314,6 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     return true, "Dynamic file loading", "[[SUSPICIOUS CODE LOADING]]"
   end
 
-  -- -----------------------------------------------------------------------
-  -- CIPHER STRING-REVERSAL RCE (detecte le 28/06/2026 - ur-cardealer config)
-  -- Technique: toutes les fonctions dangereuses sont appellees via _r"nom_renverse"
-  -- Ex: _r"daol" = load, _r"tressa" = assert, _r"tnevEteNretsigeR" = RegisterNetEvent
-  -- -----------------------------------------------------------------------
-
   -- Renversement de string + appel via _G pour masquer les fonctions
   if string.find(content, ":reverse%(%)") and string.find(content, "_G%[") and string.find(content, "CreateThread") then
     return true, "String-reversal obfuscated RCE (_r() + _G[] + CreateThread)", "[[CIPHER LUA BACKDOOR]]"
@@ -390,12 +347,6 @@ local function checkForBackdoor(content, resourceName, scriptPath)
       return true, "Cipher Node.js C2 downloader (fromCharCode + Buffer.from + hex require)", "[[CIPHER BACKDOOR]]"
     end
   end
-
-  -- -----------------------------------------------------------------------
-  -- CIPHER BASE64 METHOD OBFUSCATION (detecte 29/06/2026 - oxmysql + yarn_builder)
-  -- Technique: methodes JS (get, push, data, https) encodees en base64 dans Buffer.from()
-  -- + URL C2 splitee en morceaux concatenes pour bypasser les scanners de strings
-  -- -----------------------------------------------------------------------
 
   -- Combo base64 get + push = signature forte du downloader Cipher Node.js
   if string.find(content, "Buffer%.from%('Z2V0','base64'%)") and
@@ -570,8 +521,8 @@ local function startScan()
     print("^5========================================^0")
 
     for _, infection in ipairs(infectedResources) do
-        print("^5+^0 ^1" .. infection.resource .. "/" .. infection.file .. "^0")
-      print("Type: [^1" .. infection.backdoorType .. "^0]")
+        --print("^5+^0 ^1" .. infection.resource .. "/" .. infection.file .. "^0")
+      --print("Type: [^1" .. infection.backdoorType .. "^0]")
     end
 
     print("^5========================================^0")
@@ -580,10 +531,6 @@ local function startScan()
     print("(^4ZayssScanner^0): (^3Scan^0) =>  Potentiellement infectés: ^1" .. scanStats.infected .. " ^0")
     print("(^4ZayssScanner^0): (^3Scan^0) =>  Durée du scan: ^3" .. string.format("%.2f", scanStats.endTime - scanStats.startTime) .. "s^0")
     print("^5========================================^0")
-
-    if ZayssScanner.SendZayssDiscordLogs then
-      sendDiscordWebhook(infectedResources)
-    end
 
     if ZayssScanner.StopServer and scanStats.infected > 0 and scanStats.cleaned == 0 then
       print("(^4ZayssScanner^0): (^3Scan^0) => Backdoors non éliminées détectées !")
