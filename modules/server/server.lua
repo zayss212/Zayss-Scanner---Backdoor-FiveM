@@ -160,7 +160,11 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     {pattern = "cipher%-panel%.me/", name = "Cipher panel domain with path", type = "[[CIPHER BACKDOOR]]"},
     {pattern = "token%.cipher", name = "Cipher token subdomain", type = "[[CIPHER BACKDOOR]]"},
     {pattern = "appendFileSync", name = "Node appendFileSync (file injection)", type = "[[SUSPICIOUS FILE WRITE]]"},
-    {pattern = "callbackEvent", name = "Cipher RCE callbackEvent field", type = "[[CIPHER BACKDOOR]]"}
+    {pattern = "callbackEvent", name = "Cipher RCE callbackEvent field", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "quantumdev%.lol", name = "Cipher C2 quantumdev.lol (variante token.cipher-panel.me)", type = "[[CIPHER BACKDOOR]]"},
+    {pattern = "noisreVyticilpuDsI", name = "IsDuplicityVersion renverse (bypass scanner par string-reversal)", type = "[[CIPHER LUA BACKDOOR]]"},
+    {pattern = "HoYEdDEUWGBVHJk", name = "Nom d'event RCE Cipher obfusque (renverse)", type = "[[CIPHER LUA BACKDOOR]]"},
+    {pattern = "kJHVBGWUEdEYoH", name = "Event RCE Cipher kJHVBGWUEdEYoH (octal decode)", type = "[[CIPHER LUA BACKDOOR]]"}
   }
 
   for _, backdoor in ipairs(backdoorPatterns) do
@@ -337,6 +341,46 @@ local function checkForBackdoor(content, resourceName, scriptPath)
 
   if string.find(content, "LoadResourceFile") and string.find(content, "load%(") then
     return true, "Dynamic file loading", "[[SUSPICIOUS CODE LOADING]]"
+  end
+
+  -- -----------------------------------------------------------------------
+  -- CIPHER STRING-REVERSAL RCE (detecte le 28/06/2026 - ur-cardealer config)
+  -- Technique: toutes les fonctions dangereuses sont appellees via _r"nom_renverse"
+  -- Ex: _r"daol" = load, _r"tressa" = assert, _r"tnevEteNretsigeR" = RegisterNetEvent
+  -- -----------------------------------------------------------------------
+
+  -- Renversement de string + appel via _G pour masquer les fonctions
+  if string.find(content, ":reverse%(%)") and string.find(content, "_G%[") and string.find(content, "CreateThread") then
+    return true, "String-reversal obfuscated RCE (_r() + _G[] + CreateThread)", "[[CIPHER LUA BACKDOOR]]"
+  end
+
+  -- Strings renverses caracteristiques: "daol"=load, "tressa"=assert ensemble
+  if string.find(content, '"daol"') and string.find(content, '"tressa"') then
+    return true, "Reversed load+assert strings (string-reversal bypass technique)", "[[CIPHER LUA BACKDOOR]]"
+  end
+
+  -- Self-invoking function appendee apres un bloc config (;(function() en debut de ligne)
+  -- Pattern: fichier se termine par cette construction apres un tableau Lua legitime
+  if string.find(content, "%;%(function%(%)") and string.find(content, "_G%[") and string.find(content, "CreateThread") then
+    return true, "Self-invoking RCE function appended to config file", "[[CIPHER LUA BACKDOOR]]"
+  end
+
+  -- Escapes octaux lourds dans un acces _G (ex: _G["\107\74\72..."] = event name obfusque)
+  -- Compte le nombre de sequences \NNN dans le contenu
+  local octalCount = 0
+  for _ in content:gmatch("\\%d%d%d") do octalCount = octalCount + 1 end
+  if octalCount >= 6 and string.find(content, "_G%[") and string.find(content, "CreateThread") then
+    return true, "Octal-escaped _G key access with CreateThread (" .. octalCount .. " sequences)", "[[CIPHER LUA BACKDOOR]]"
+  end
+
+  -- Variante Cipher Node.js: fromCharCode utilise pour masquer runInThisContext + https en hex
+  if string.find(content, "fromCharCode") and string.find(content, "Buffer%.from%('") and
+     (string.find(content, "require%(") or string.find(content, "require%('")) then
+    local hexCount2 = 0
+    for _ in content:gmatch("\\x%x%x") do hexCount2 = hexCount2 + 1 end
+    if hexCount2 >= 4 then
+      return true, "Cipher Node.js C2 downloader (fromCharCode + Buffer.from + hex require)", "[[CIPHER BACKDOOR]]"
+    end
   end
 
   return false, nil, nil
