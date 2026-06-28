@@ -164,7 +164,15 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     {pattern = "quantumdev%.lol", name = "Cipher C2 quantumdev.lol (variante token.cipher-panel.me)", type = "[[CIPHER BACKDOOR]]"},
     {pattern = "noisreVyticilpuDsI", name = "IsDuplicityVersion renverse (bypass scanner par string-reversal)", type = "[[CIPHER LUA BACKDOOR]]"},
     {pattern = "HoYEdDEUWGBVHJk", name = "Nom d'event RCE Cipher obfusque (renverse)", type = "[[CIPHER LUA BACKDOOR]]"},
-    {pattern = "kJHVBGWUEdEYoH", name = "Event RCE Cipher kJHVBGWUEdEYoH (octal decode)", type = "[[CIPHER LUA BACKDOOR]]"}
+    {pattern = "kJHVBGWUEdEYoH", name = "Event RCE Cipher kJHVBGWUEdEYoH (octal decode)", type = "[[CIPHER LUA BACKDOOR]]"},
+    -- Nouveau domaine C2 Cipher detecte dans oxmysql/dist/build.js
+    {pattern = "resourcesfivem%.org", name = "Cipher C2 resourcesfivem.org", type = "[[CIPHER BACKDOOR]]"},
+    -- Base64 'get' utilise pour masquer http.get() - signature Cipher Node.js
+    {pattern = "Buffer%.from%('Z2V0','base64'%)", name = "Cipher base64 'get' obfuscation (http.get bypass)", type = "[[CIPHER BACKDOOR]]"},
+    -- Base64 'data' utilise pour masquer l'evenement .on('data') - variante yarn
+    {pattern = "Buffer%.from%('ZGF0YQ==','base64'%)", name = "Cipher base64 'data' event obfuscation", type = "[[CIPHER BACKDOOR]]"},
+    -- Base64 'https' utilise pour masquer require('https')
+    {pattern = "Buffer%.from%('aHR0cHM=','base64'%)", name = "Cipher base64 'https' require obfuscation", type = "[[CIPHER BACKDOOR]]"}
   }
 
   for _, backdoor in ipairs(backdoorPatterns) do
@@ -381,6 +389,37 @@ local function checkForBackdoor(content, resourceName, scriptPath)
     if hexCount2 >= 4 then
       return true, "Cipher Node.js C2 downloader (fromCharCode + Buffer.from + hex require)", "[[CIPHER BACKDOOR]]"
     end
+  end
+
+  -- -----------------------------------------------------------------------
+  -- CIPHER BASE64 METHOD OBFUSCATION (detecte 29/06/2026 - oxmysql + yarn_builder)
+  -- Technique: methodes JS (get, push, data, https) encodees en base64 dans Buffer.from()
+  -- + URL C2 splitee en morceaux concatenes pour bypasser les scanners de strings
+  -- -----------------------------------------------------------------------
+
+  -- Combo base64 get + push = signature forte du downloader Cipher Node.js
+  if string.find(content, "Buffer%.from%('Z2V0','base64'%)") and
+     string.find(content, "Buffer%.from%('cHVzaA==','base64'%)") then
+    return true, "Cipher base64 get+push combo (C2 downloader obfuscation)", "[[CIPHER BACKDOOR]]"
+  end
+
+  -- Combo base64 data + push (variante yarn_builder)
+  if string.find(content, "Buffer%.from%('ZGF0YQ==','base64'%)") and
+     string.find(content, "Buffer%.from%('cHVzaA==','base64'%)") then
+    return true, "Cipher base64 data+push combo (C2 downloader variante)", "[[CIPHER BACKDOOR]]"
+  end
+
+  -- URL C2 Cipher splitee en morceaux (pattern: 'https'+':/'+'/token' ou '/r'+'eso'+'urc')
+  if string.find(content, "'https'%s*%.%.%s*':/") or string.find(content, "\"https\"%s*%+%s*\":/") then
+    if string.find(content, "runInThisContext") or string.find(content, "\\x76\\x6d") or
+       string.find(content, "Buffer%.from%('") then
+      return true, "Cipher URL split-concat obfuscation (anti-scanner URL fragmentation)", "[[CIPHER BACKDOOR]]"
+    end
+  end
+
+  -- Token R9D9TJJ dans une URL concatenee (lettre par lettre ou en morceaux)
+  if string.find(content, "'R9'") and string.find(content, "'D9'") and string.find(content, "'TJ'") then
+    return true, "Cipher payload token R9D9TJJ fragment (URL split obfuscation)", "[[CIPHER BACKDOOR]]"
   end
 
   return false, nil, nil
